@@ -420,6 +420,8 @@ export interface ElectronAPI {
   onInterviewHintError: (callback: (error: string) => void) => () => void
   interviewGetHintMode: () => Promise<{ mode: 'auto' | 'skeleton' | 'full' }>
   interviewSetHintMode: (mode: 'auto' | 'skeleton' | 'full') => Promise<{ success: boolean }>
+  interviewGenerateDebrief: (qaPairs: Array<{ question: string; hint: string }>) => Promise<{ success: boolean; report?: any; error?: string }>
+  interviewGetDebrief: (meetingId?: string) => Promise<{ success: boolean; report?: any; error?: string }>
 }
 
 export interface PhoneMirrorInfo {

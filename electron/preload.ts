@@ -576,6 +576,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   },
   interviewGetHintMode: () => ipcRenderer.invoke('interview:get-hint-mode'),
   interviewSetHintMode: (mode: 'auto' | 'skeleton' | 'full') => ipcRenderer.invoke('interview:set-hint-mode', mode),
+  interviewGenerateDebrief: (qaPairs: Array<{ question: string; hint: string }>) => ipcRenderer.invoke('interview:generate-debrief', { qaPairs }),
+  interviewGetDebrief: (meetingId?: string) => ipcRenderer.invoke('interview:get-debrief', { meetingId }),
   onWindowMaximizedChanged: (callback: (isMaximized: boolean) => void) => {
     const subscription = (_: any, isMaximized: boolean) => callback(isMaximized);
     ipcRenderer.on('window-maximized-changed', subscription);

@@ -2564,6 +2564,60 @@ export function initializeIpcHandlers(appState: AppState): void {
     }
   });
 
+  // ── DebriefGenerator ──────────────────────────────────────────────────────
+  safeHandle("interview:generate-debrief", async (_event, payload: { qaPairs: Array<{ question: string; hint: string }> }) => {
+    try {
+      const { CredentialsManager } = require('./services/CredentialsManager');
+      const cm = CredentialsManager.getInstance();
+      const claudeKey = cm.getClaudeApiKey?.() || cm.getAllCredentials?.()?.claudeApiKey;
+      if (!claudeKey) return { success: false, error: 'Claude API key not set.' };
+
+      const Anthropic = require('@anthropic-ai/sdk');
+      const client = new Anthropic.default({ apiKey: claudeKey });
+      const modelId = cm.getInterviewNonRealtimeModel();
+
+      const { DebriefGenerator } = require('./llm/DebriefGenerator');
+      const { sessionContextStore } = require('./SessionContextStore');
+      const gen = new DebriefGenerator({ client, modelId, store: sessionContextStore });
+      const report = await gen.generate(payload.qaPairs);
+
+      // Persist to most recent meeting record
+      const db = DatabaseManager.getInstance();
+      const recent = db.getRecentMeetings(1);
+      if (recent && recent.length > 0) {
+        const meetingId = recent[0].id;
+        const row = (db as any).db?.prepare?.('SELECT summary_json FROM meetings WHERE id = ?').get(meetingId) as any;
+        if (row) {
+          const existing = JSON.parse(row.summary_json || '{}');
+          existing.detailedSummary = { ...(existing.detailedSummary || {}), debriefReport: report };
+          (db as any).db?.prepare?.('UPDATE meetings SET summary_json = ? WHERE id = ?').run(JSON.stringify(existing), meetingId);
+        }
+      }
+
+      return { success: true, report };
+    } catch (e: any) {
+      console.error('[interview:generate-debrief] Error:', e);
+      return { success: false, error: e.message ?? 'Generation failed.' };
+    }
+  });
+
+  safeHandle("interview:get-debrief", async (_event, payload?: { meetingId?: string }) => {
+    try {
+      const db = DatabaseManager.getInstance();
+      let meetingId = payload?.meetingId;
+      if (!meetingId) {
+        const recent = db.getRecentMeetings(1);
+        meetingId = recent?.[0]?.id;
+      }
+      if (!meetingId) return { success: false, error: 'No meeting found.' };
+      const meeting = db.getMeetingDetails(meetingId);
+      const report = (meeting as any)?.detailedSummary?.debriefReport ?? null;
+      return { success: true, report };
+    } catch (e: any) {
+      return { success: false, error: e.message };
+    }
+  });
+
   safeHandle("get-recent-meetings", async () => {
     // Fetch from SQLite (limit 50)
     return DatabaseManager.getInstance().getRecentMeetings(50);
