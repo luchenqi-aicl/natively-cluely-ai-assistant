@@ -2448,10 +2448,18 @@ export function initializeIpcHandlers(appState: AppState): void {
       const filename = path.basename(payload.filePath);
       await parser.parseFile(buffer, filename, payload.jdText);
 
+      // Enrich the stored SessionContext with session-level settings
+      const { sessionContextStore } = require('./SessionContextStore');
+      const parsed = sessionContextStore.get();
+      if (parsed) {
+        sessionContextStore.load({
+          ...parsed,
+          hintLanguage: payload.hintLanguage,
+          interviewType: payload.interviewType,
+        });
+      }
+
       // Persist language choices for the session
-      const { SettingsManager } = require('./services/SettingsManager');
-      const sm = SettingsManager.getInstance();
-      // Re-use existing STT / AI response language settings
       cm.setAiResponseLanguage?.(payload.hintLanguage);
       cm.setSttLanguage?.(payload.sttLanguage);
 
@@ -2492,6 +2500,40 @@ export function initializeIpcHandlers(appState: AppState): void {
   safeHandle("interview:manual-trigger", () => {
     if (appState.getIsMeetingActive()) {
       appState.broadcastInterviewTrigger('manual');
+    }
+  });
+
+  // Streaming interview hint — sends 'interview:hint-token' events while generating
+  safeHandle("interview:generate-hint", async (event, payload: { transcript: string }) => {
+    try {
+      const { CredentialsManager } = require('./services/CredentialsManager');
+      const cm = CredentialsManager.getInstance();
+      const claudeKey = cm.getClaudeApiKey?.() || cm.getAllCredentials?.()?.claudeApiKey;
+      if (!claudeKey) {
+        event.sender.send('interview:hint-error', 'Claude API key not set.');
+        return;
+      }
+
+      const Anthropic = require('@anthropic-ai/sdk');
+      const client = new Anthropic.default({ apiKey: claudeKey });
+      const modelId = cm.getInterviewRealtimeModel();
+
+      const { InterviewAnswerLLM } = require('./llm/AnswerLLM');
+      const { sessionContextStore } = require('./SessionContextStore');
+      const llm = new InterviewAnswerLLM({ client, modelId, store: sessionContextStore });
+
+      for await (const token of llm.generateHint(payload.transcript)) {
+        if (event.sender.isDestroyed()) break;
+        event.sender.send('interview:hint-token', token);
+      }
+      if (!event.sender.isDestroyed()) {
+        event.sender.send('interview:hint-done');
+      }
+    } catch (e: any) {
+      console.error('[interview:generate-hint] Error:', e);
+      if (!event.sender.isDestroyed()) {
+        event.sender.send('interview:hint-error', e.message ?? 'Generation failed.');
+      }
     }
   });
 

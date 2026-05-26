@@ -553,6 +553,22 @@ contextBridge.exposeInMainWorld("electronAPI", {
   interviewSetNonRealtimeModel: (model: string) => ipcRenderer.invoke('interview:set-non-realtime-model', model),
   interviewSelectResume: () => ipcRenderer.invoke('interview:select-resume'),
   interviewParseResume: (payload: any) => ipcRenderer.invoke('interview:parse-resume', payload),
+  interviewGenerateHint: (transcript: string) => ipcRenderer.invoke('interview:generate-hint', { transcript }),
+  onInterviewHintToken: (callback: (token: string) => void) => {
+    const sub = (_: any, token: string) => callback(token);
+    ipcRenderer.on('interview:hint-token', sub);
+    return () => { ipcRenderer.removeListener('interview:hint-token', sub); };
+  },
+  onInterviewHintDone: (callback: () => void) => {
+    const sub = () => callback();
+    ipcRenderer.on('interview:hint-done', sub);
+    return () => { ipcRenderer.removeListener('interview:hint-done', sub); };
+  },
+  onInterviewHintError: (callback: (error: string) => void) => {
+    const sub = (_: any, error: string) => callback(error);
+    ipcRenderer.on('interview:hint-error', sub);
+    return () => { ipcRenderer.removeListener('interview:hint-error', sub); };
+  },
   onWindowMaximizedChanged: (callback: (isMaximized: boolean) => void) => {
     const subscription = (_: any, isMaximized: boolean) => callback(isMaximized);
     ipcRenderer.on('window-maximized-changed', subscription);

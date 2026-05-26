@@ -35,6 +35,10 @@ export interface SessionContext {
     jdKeywords: string[];
     /** Present when the candidate has a cross-industry background worth surfacing. */
     careerPivotStory?: string;
+    /** Language for AI-generated hints (e.g. 'Chinese', 'English'). Defaults to 'Chinese'. */
+    hintLanguage?: string;
+    /** Interview type selected by the user (e.g. 'behavioral', 'technical'). */
+    interviewType?: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
