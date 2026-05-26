@@ -153,6 +153,7 @@ import { CropperWindowHelper } from "./CropperWindowHelper"
 import { ScreenshotHelper } from "./ScreenshotHelper"
 import { KeybindManager } from "./services/KeybindManager"
 import { ProcessingHelper } from "./ProcessingHelper"
+import { InterviewTriggerController } from "./InterviewTriggerController"
 
 import { IntelligenceManager } from "./IntelligenceManager"
 import { SystemAudioCapture } from "./audio/SystemAudioCapture"
@@ -612,6 +613,10 @@ export class AppState {
     return this.isMeetingActive;
   }
 
+  public broadcastInterviewTrigger(source: 'auto' | 'manual'): void {
+    this.broadcast('interview:trigger', { source });
+  }
+
   public isQuitting(): boolean {
     return this._isQuitting;
   }
@@ -947,6 +952,7 @@ export class AppState {
   private _audioTestStarting = false;               // P2-12: in-flight guard against concurrent calls
   private googleSTT: STTProvider | null = null; // Interviewer
   private googleSTT_User: STTProvider | null = null; // User
+  private interviewTriggerController: InterviewTriggerController | null = null;
 
   private createSTTProvider(speaker: 'interviewer' | 'user'): STTProvider | null {
     const { CredentialsManager } = require('./services/CredentialsManager');
@@ -1399,6 +1405,20 @@ export class AppState {
     capture.on('speech_ended', () => {
       this.googleSTT?.notifySpeechEnded?.();
     });
+
+    // Detach any previous controller (e.g. after audio reconfiguration) before
+    // attaching a fresh one so the broadcast fires exactly once per trigger.
+    this.interviewTriggerController?.detach();
+    this.interviewTriggerController = new InterviewTriggerController(
+      capture,
+      () => {
+        if (this.isMeetingActive) {
+          this.broadcast('interview:trigger', { source: 'auto' });
+        }
+      }
+    );
+    this.interviewTriggerController.attach();
+
     // setupAudioRecoveryHandler registers its own 'error' listener — do not
     // add a duplicate logger here or the same error reports twice.
     this.setupAudioRecoveryHandler();
@@ -2646,6 +2666,10 @@ export class AppState {
     if (this.overlayMousePassthrough) {
       this.setOverlayMousePassthrough(false);
     }
+
+    // Detach the silence-trigger controller so no triggers fire after the meeting ends.
+    this.interviewTriggerController?.detach();
+    this.interviewTriggerController = null;
 
     // ─── UX STATE FLIP — SYNCHRONOUS ───────────────────────────────────────
     // Flip the UX-facing meeting flag to false RIGHT NOW and broadcast. The

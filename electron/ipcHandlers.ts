@@ -2409,6 +2409,13 @@ export function initializeIpcHandlers(appState: AppState): void {
     }
   });
 
+  // Manual interview trigger ('c' key from renderer → broadcast same event as auto-trigger)
+  safeHandle("interview:manual-trigger", () => {
+    if (appState.getIsMeetingActive()) {
+      appState.broadcastInterviewTrigger('manual');
+    }
+  });
+
   safeHandle("get-recent-meetings", async () => {
     // Fetch from SQLite (limit 50)
     return DatabaseManager.getInstance().getRecentMeetings(50);

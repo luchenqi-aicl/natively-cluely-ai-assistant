@@ -214,6 +214,8 @@ interface ElectronAPI {
   hideOverlay: () => Promise<void>
   getMeetingActive: () => Promise<boolean>
   onMeetingStateChanged: (callback: (data: { isActive: boolean }) => void) => () => void
+  onInterviewTrigger: (callback: (data: { source: 'auto' | 'manual' }) => void) => () => void
+  dispatchInterviewTrigger: () => Promise<void>
   onWindowMaximizedChanged: (callback: (isMaximized: boolean) => void) => () => void
   onEnsureExpanded: (callback: () => void) => () => void
   onToggleExpand: (callback: () => void) => () => void
@@ -535,6 +537,12 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.on('meeting-state-changed', subscription);
     return () => { ipcRenderer.removeListener('meeting-state-changed', subscription); };
   },
+  onInterviewTrigger: (callback: (data: { source: 'auto' | 'manual' }) => void) => {
+    const subscription = (_: any, data: { source: 'auto' | 'manual' }) => callback(data);
+    ipcRenderer.on('interview:trigger', subscription);
+    return () => { ipcRenderer.removeListener('interview:trigger', subscription); };
+  },
+  dispatchInterviewTrigger: () => ipcRenderer.invoke('interview:manual-trigger'),
   onWindowMaximizedChanged: (callback: (isMaximized: boolean) => void) => {
     const subscription = (_: any, isMaximized: boolean) => callback(isMaximized);
     ipcRenderer.on('window-maximized-changed', subscription);

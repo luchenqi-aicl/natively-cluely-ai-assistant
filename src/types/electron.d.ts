@@ -402,6 +402,10 @@ export interface ElectronAPI {
   phoneMirrorSetLan: (exposeOnLan: boolean) => Promise<PhoneMirrorInfo | { error: string }>;
   phoneMirrorRotateToken: () => Promise<PhoneMirrorInfo | { error: string }>;
   onPhoneMirrorStatus: (callback: (info: PhoneMirrorInfo) => void) => () => void;
+
+  // InterviewCopilot — trigger events
+  onInterviewTrigger: (callback: (data: { source: 'auto' | 'manual' }) => void) => () => void
+  dispatchInterviewTrigger: () => Promise<void>
 }
 
 export interface PhoneMirrorInfo {

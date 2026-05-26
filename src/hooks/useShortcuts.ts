@@ -4,6 +4,7 @@ import { getPlatformShortcut, isMac } from '../utils/platformUtils';
 
 // Define the shape of our shortcuts configuration
 export interface ShortcutConfig {
+    interviewTrigger: string[];
     whatToAnswer: string[];
     autoAnswerMode: string[];
     clarify: string[];
@@ -38,6 +39,7 @@ function buildDefaultShortcuts(): ShortcutConfig {
     const mod = isMac ? '⌘' : 'Ctrl';
     const shift = isMac ? '⇧' : 'Shift';
     return {
+        interviewTrigger: ['c'],
         whatToAnswer: [mod, '1'],
         autoAnswerMode: [mod, 'f'],
         clarify: [mod, '2'],
@@ -68,6 +70,7 @@ function buildDefaultShortcuts(): ShortcutConfig {
 }
 
 export const DEFAULT_SHORTCUTS: ShortcutConfig = {
+    interviewTrigger: ['c'],
     whatToAnswer: ['⌘', '1'],
     autoAnswerMode: ['⌘', 'F'],
     clarify: ['⌘', '2'],

@@ -579,11 +579,31 @@ const NativelyInterface: React.FC<NativelyInterfaceProps> = ({
         localStorage.setItem('natively_hideChatHidesWidget', String(hideChatHidesWidget));
     }, [isUndetectable, hideChatHidesWidget]);
 
+    // InterviewCopilot: tracks whether hint generation is currently in-progress
+    const [isInterviewGenerating, setIsInterviewGenerating] = useState(false);
+    const isInterviewGeneratingRef = React.useRef(false);
+    useEffect(() => { isInterviewGeneratingRef.current = isInterviewGenerating; }, [isInterviewGenerating]);
+
     // Mouse Passthrough State
     const [isMousePassthrough, setIsMousePassthrough] = useState(false);
     useEffect(() => {
         window.electronAPI?.getOverlayMousePassthrough?.().then(setIsMousePassthrough).catch(() => { });
         const unsub = window.electronAPI?.onOverlayMousePassthroughChanged?.((v) => setIsMousePassthrough(v));
+        return () => unsub?.();
+    }, []);
+
+    // InterviewCopilot: listen for interview:trigger from main (auto or manual routed via main)
+    useEffect(() => {
+        const unsub = window.electronAPI?.onInterviewTrigger?.(({ source }) => {
+            if (isInterviewGeneratingRef.current) {
+                // Second trigger during generation → cancel
+                setIsInterviewGenerating(false);
+            } else {
+                setIsInterviewGenerating(true);
+                console.log(`[InterviewCopilot] Hint generation triggered (source: ${source})`);
+                // TODO(#6): call AnswerLLM.generateHint() and reset state on completion
+            }
+        });
         return () => unsub?.();
     }, []);
 
@@ -2321,6 +2341,17 @@ Provide only the answer, nothing else.`;
 
         const handleKeyDown = (e: KeyboardEvent) => {
             const { handleWhatToSay, handleFollowUp, handleFollowUpQuestions, handleRecap, handleAnswerNow, handleClarify, handleCodeHint, handleBrainstorm } = handlersRef.current;
+
+            // InterviewCopilot: 'c' key triggers or cancels hint generation.
+            // Guard: skip when an input/textarea is focused so the user can type freely.
+            if (isShortcutPressed(e, 'interviewTrigger')) {
+                const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+                if (tag !== 'input' && tag !== 'textarea') {
+                    e.preventDefault();
+                    window.electronAPI?.dispatchInterviewTrigger?.();
+                    return;
+                }
+            }
 
             // Chat Shortcuts (Scope: Local to Chat/Overlay usually, but we allow them here if focused)
             if (isShortcutPressed(e, 'whatToAnswer')) {
