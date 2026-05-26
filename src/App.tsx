@@ -15,6 +15,7 @@ import { FreeTrialBanner }      from "./components/trial/FreeTrialBanner"
 import { FreeTrialModal }       from "./components/trial/FreeTrialModal"
 import { TrialPromoToaster }    from "./components/trial/TrialPromoToaster"
 import { PermissionsToaster }   from "./components/onboarding/PermissionsToaster"
+import PreInterviewSetupPanel from "./components/PreInterviewSetupPanel"
 import { AlertCircle } from "lucide-react"
 import { clampOverlayOpacity, OVERLAY_OPACITY_DEFAULT, getDefaultOverlayOpacity } from "./lib/overlayAppearance"
 import { getMeetingInterfaceTheme, type MeetingInterfaceTheme } from './lib/meetingInterfaceTheme'
@@ -138,6 +139,7 @@ const App: React.FC = () => {
   // Profile state for ad targeting
   const [hasProfile, setHasProfile] = useState(false);
   const [isLauncherMainView, setIsLauncherMainView] = useState(true);
+  const [showSetupPanel, setShowSetupPanel] = useState(false);
 
   // Initialize Ads Campaign Manager
   const [appStartTime] = useState<number>(Date.now());
@@ -381,15 +383,18 @@ const App: React.FC = () => {
     }
   };
 
-  const handleStartMeeting = async () => {
+  const handleStartMeeting = () => {
+    setShowSetupPanel(true);
+  };
+
+  const handleSetupDone = async () => {
+    setShowSetupPanel(false);
     try {
       localStorage.setItem('natively_last_meeting_start', Date.now().toString());
       const inputDeviceId = localStorage.getItem('preferredInputDeviceId');
       let outputDeviceId = localStorage.getItem('preferredOutputDeviceId');
       const useExperimentalSck = localStorage.getItem('useExperimentalSckBackend') === 'true';
 
-      // Override output device ID to force SCK if experimental mode is enabled
-      // Default to CoreAudio unless experimental is enabled
       if (useExperimentalSck) {
         console.log("[App] Using ScreenCaptureKit backend (Experimental).");
         outputDeviceId = "sck";
@@ -402,9 +407,6 @@ const App: React.FC = () => {
       });
       if (result.success) {
         analytics.trackMeetingStarted();
-        // Window swap happens inside main's startMeeting() now (before the
-        // meeting-state broadcast) to avoid a blue→green CTA flash on the
-        // launcher. No follow-up setWindowMode IPC needed here.
       } else {
         console.error("Failed to start meeting:", result.error);
       }
@@ -545,6 +547,14 @@ const App: React.FC = () => {
                     ollamaPullPercent={ollamaPullPercent}
                     ollamaPullMessage={ollamaPullMessage}
                   />
+                  <AnimatePresence>
+                    {showSetupPanel && (
+                      <PreInterviewSetupPanel
+                        onDone={handleSetupDone}
+                        onCancel={() => setShowSetupPanel(false)}
+                      />
+                    )}
+                  </AnimatePresence>
                 </div>
                 <SettingsOverlay
                   isOpen={isSettingsOpen}

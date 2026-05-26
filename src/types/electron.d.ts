@@ -410,6 +410,9 @@ export interface ElectronAPI {
   interviewGetModels: () => Promise<{ realtimeModel: string; nonRealtimeModel: string }>
   interviewSetRealtimeModel: (model: string) => Promise<{ success: boolean }>
   interviewSetNonRealtimeModel: (model: string) => Promise<{ success: boolean }>
+  // InterviewCopilot — pre-interview setup
+  interviewSelectResume: () => Promise<{ cancelled?: boolean; success?: boolean; filePath?: string; filename?: string; error?: string }>
+  interviewParseResume: (payload: { filePath: string; jdText: string; interviewType: string; sttLanguage: string; hintLanguage: string }) => Promise<{ success: boolean; error?: string }>
 }
 
 export interface PhoneMirrorInfo {

@@ -219,6 +219,8 @@ interface ElectronAPI {
   interviewGetModels: () => Promise<{ realtimeModel: string; nonRealtimeModel: string }>
   interviewSetRealtimeModel: (model: string) => Promise<{ success: boolean }>
   interviewSetNonRealtimeModel: (model: string) => Promise<{ success: boolean }>
+  interviewSelectResume: () => Promise<{ cancelled?: boolean; success?: boolean; filePath?: string; filename?: string; error?: string }>
+  interviewParseResume: (payload: { filePath: string; jdText: string; interviewType: string; sttLanguage: string; hintLanguage: string }) => Promise<{ success: boolean; error?: string }>
   onWindowMaximizedChanged: (callback: (isMaximized: boolean) => void) => () => void
   onEnsureExpanded: (callback: () => void) => () => void
   onToggleExpand: (callback: () => void) => () => void
@@ -549,6 +551,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   interviewGetModels: () => ipcRenderer.invoke('interview:get-models'),
   interviewSetRealtimeModel: (model: string) => ipcRenderer.invoke('interview:set-realtime-model', model),
   interviewSetNonRealtimeModel: (model: string) => ipcRenderer.invoke('interview:set-non-realtime-model', model),
+  interviewSelectResume: () => ipcRenderer.invoke('interview:select-resume'),
+  interviewParseResume: (payload: any) => ipcRenderer.invoke('interview:parse-resume', payload),
   onWindowMaximizedChanged: (callback: (isMaximized: boolean) => void) => {
     const subscription = (_: any, isMaximized: boolean) => callback(isMaximized);
     ipcRenderer.on('window-maximized-changed', subscription);

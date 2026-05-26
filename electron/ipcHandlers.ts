@@ -2409,6 +2409,63 @@ export function initializeIpcHandlers(appState: AppState): void {
     }
   });
 
+  // InterviewCopilot — pre-interview setup
+  safeHandle("interview:select-resume", async () => {
+    try {
+      const result: any = await dialog.showOpenDialog({
+        properties: ['openFile'],
+        filters: [{ name: 'Resume Files', extensions: ['pdf', 'docx'] }],
+      });
+      if (result.canceled || result.filePaths.length === 0) return { cancelled: true };
+      const filePath: string = result.filePaths[0];
+      return { success: true, filePath, filename: path.basename(filePath) };
+    } catch (e: any) {
+      return { success: false, error: e.message };
+    }
+  });
+
+  safeHandle("interview:parse-resume", async (_event, payload: {
+    filePath: string;
+    jdText: string;
+    interviewType: string;
+    sttLanguage: string;
+    hintLanguage: string;
+  }) => {
+    try {
+      const { CredentialsManager } = require('./services/CredentialsManager');
+      const cm = CredentialsManager.getInstance();
+      const claudeKey = cm.getClaudeApiKey?.() || cm.getAllCredentials?.()?.claudeApiKey;
+      if (!claudeKey) return { success: false, error: 'Claude API key not set. Add it in Settings → AI Providers.' };
+
+      const Anthropic = require('@anthropic-ai/sdk');
+      const client = new Anthropic.default({ apiKey: claudeKey });
+      const modelId = cm.getInterviewNonRealtimeModel();
+
+      const { ResumeJDParser } = require('./llm/ResumeJDParser');
+      const parser = new ResumeJDParser({ client, modelId });
+
+      const buffer = fs.readFileSync(payload.filePath);
+      const filename = path.basename(payload.filePath);
+      await parser.parseFile(buffer, filename, payload.jdText);
+
+      // Persist language choices for the session
+      const { SettingsManager } = require('./services/SettingsManager');
+      const sm = SettingsManager.getInstance();
+      // Re-use existing STT / AI response language settings
+      cm.setAiResponseLanguage?.(payload.hintLanguage);
+      cm.setSttLanguage?.(payload.sttLanguage);
+
+      return { success: true };
+    } catch (e: any) {
+      console.error('[interview:parse-resume] Error:', e);
+      const msg = e.message || 'Unknown error';
+      if (msg.toLowerCase().includes('pdf') || msg.toLowerCase().includes('parse')) {
+        return { success: false, error: 'Could not read the resume file — try DOCX format.' };
+      }
+      return { success: false, error: msg };
+    }
+  });
+
   // InterviewCopilot model settings
   safeHandle("interview:get-models", () => {
     const { CredentialsManager } = require('./services/CredentialsManager');
