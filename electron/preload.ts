@@ -216,6 +216,9 @@ interface ElectronAPI {
   onMeetingStateChanged: (callback: (data: { isActive: boolean }) => void) => () => void
   onInterviewTrigger: (callback: (data: { source: 'auto' | 'manual' }) => void) => () => void
   dispatchInterviewTrigger: () => Promise<void>
+  interviewGetModels: () => Promise<{ realtimeModel: string; nonRealtimeModel: string }>
+  interviewSetRealtimeModel: (model: string) => Promise<{ success: boolean }>
+  interviewSetNonRealtimeModel: (model: string) => Promise<{ success: boolean }>
   onWindowMaximizedChanged: (callback: (isMaximized: boolean) => void) => () => void
   onEnsureExpanded: (callback: () => void) => () => void
   onToggleExpand: (callback: () => void) => () => void
@@ -543,6 +546,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
     return () => { ipcRenderer.removeListener('interview:trigger', subscription); };
   },
   dispatchInterviewTrigger: () => ipcRenderer.invoke('interview:manual-trigger'),
+  interviewGetModels: () => ipcRenderer.invoke('interview:get-models'),
+  interviewSetRealtimeModel: (model: string) => ipcRenderer.invoke('interview:set-realtime-model', model),
+  interviewSetNonRealtimeModel: (model: string) => ipcRenderer.invoke('interview:set-non-realtime-model', model),
   onWindowMaximizedChanged: (callback: (isMaximized: boolean) => void) => {
     const subscription = (_: any, isMaximized: boolean) => callback(isMaximized);
     ipcRenderer.on('window-maximized-changed', subscription);

@@ -15,6 +15,7 @@ import { AIProvidersSettings } from './settings/AIProvidersSettings';
 import { NativelyApiSettings } from './settings/NativelyApiSettings';
 import { NativelyProSettings } from './settings/NativelyProSettings';
 import { PhoneMirrorSettings } from './settings/PhoneMirrorSettings';
+import InterviewCopilotSettings from './settings/InterviewCopilotSettings';
 import { LocalWhisperModelPanel } from './LocalWhisperModelPanel';
 import { NativelyLogoMark } from './NativelyLogoMark';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -1359,6 +1360,13 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose, init
                                         className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-3 ${activeTab === 'phone-mirror' ? 'bg-bg-item-active text-text-primary' : 'text-text-secondary hover:text-text-primary hover:bg-bg-item-active/50'}`}
                                     >
                                         <Smartphone size={16} /> Phone Mirror
+                                    </button>
+
+                                    <button
+                                        onClick={() => setActiveTab('interview-copilot')}
+                                        className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-3 ${activeTab === 'interview-copilot' ? 'bg-bg-item-active text-text-primary' : 'text-text-secondary hover:text-text-primary hover:bg-bg-item-active/50'}`}
+                                    >
+                                        <Briefcase size={16} /> Interview Copilot
                                     </button>
 
                                     <button
@@ -2868,6 +2876,10 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose, init
 
                             {activeTab === 'phone-mirror' && (
                                 <PhoneMirrorSettings />
+                            )}
+
+                            {activeTab === 'interview-copilot' && (
+                                <InterviewCopilotSettings />
                             )}
 
                             {activeTab === 'help' && (

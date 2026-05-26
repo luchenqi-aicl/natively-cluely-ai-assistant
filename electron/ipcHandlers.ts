@@ -2409,6 +2409,28 @@ export function initializeIpcHandlers(appState: AppState): void {
     }
   });
 
+  // InterviewCopilot model settings
+  safeHandle("interview:get-models", () => {
+    const { CredentialsManager } = require('./services/CredentialsManager');
+    const cm = CredentialsManager.getInstance();
+    return {
+      realtimeModel: cm.getInterviewRealtimeModel(),
+      nonRealtimeModel: cm.getInterviewNonRealtimeModel(),
+    };
+  });
+
+  safeHandle("interview:set-realtime-model", (_event, model: string) => {
+    const { CredentialsManager } = require('./services/CredentialsManager');
+    CredentialsManager.getInstance().setInterviewRealtimeModel(model);
+    return { success: true };
+  });
+
+  safeHandle("interview:set-non-realtime-model", (_event, model: string) => {
+    const { CredentialsManager } = require('./services/CredentialsManager');
+    CredentialsManager.getInstance().setInterviewNonRealtimeModel(model);
+    return { success: true };
+  });
+
   // Manual interview trigger ('c' key from renderer → broadcast same event as auto-trigger)
   safeHandle("interview:manual-trigger", () => {
     if (appState.getIsMeetingActive()) {

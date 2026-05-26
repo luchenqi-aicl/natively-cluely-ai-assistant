@@ -406,6 +406,10 @@ export interface ElectronAPI {
   // InterviewCopilot — trigger events
   onInterviewTrigger: (callback: (data: { source: 'auto' | 'manual' }) => void) => () => void
   dispatchInterviewTrigger: () => Promise<void>
+  // InterviewCopilot — model settings
+  interviewGetModels: () => Promise<{ realtimeModel: string; nonRealtimeModel: string }>
+  interviewSetRealtimeModel: (model: string) => Promise<{ success: boolean }>
+  interviewSetNonRealtimeModel: (model: string) => Promise<{ success: boolean }>
 }
 
 export interface PhoneMirrorInfo {

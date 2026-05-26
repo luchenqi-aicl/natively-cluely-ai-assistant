@@ -61,6 +61,9 @@ export interface StoredCredentials {
     trialExpiresAt?: string;   // ISO timestamp — local copy for startup check
     trialStartedAt?: string;   // ISO timestamp
     trialClaimed?: boolean;  // set true on first claim, never cleared — hides start card permanently
+    // InterviewCopilot model overrides
+    interviewRealtimeModel?: string;    // default: claude-haiku-4-5-20251001
+    interviewNonRealtimeModel?: string; // default: claude-opus-4-7
 }
 
 export class CredentialsManager {
@@ -327,6 +330,24 @@ export class CredentialsManager {
         this.credentials.defaultModel = model;
         this.saveCredentials();
         console.log(`[CredentialsManager] Default Model set to: ${model}`);
+    }
+
+    public getInterviewRealtimeModel(): string {
+        return this.credentials.interviewRealtimeModel || 'claude-haiku-4-5-20251001';
+    }
+
+    public setInterviewRealtimeModel(model: string): void {
+        this.credentials.interviewRealtimeModel = model;
+        this.saveCredentials();
+    }
+
+    public getInterviewNonRealtimeModel(): string {
+        return this.credentials.interviewNonRealtimeModel || 'claude-opus-4-7';
+    }
+
+    public setInterviewNonRealtimeModel(model: string): void {
+        this.credentials.interviewNonRealtimeModel = model;
+        this.saveCredentials();
     }
 
     public setNativelyApiKey(key: string): void {
