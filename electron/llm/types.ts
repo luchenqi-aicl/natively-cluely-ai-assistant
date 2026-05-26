@@ -1,6 +1,44 @@
 // electron/llm/types.ts
 // Shared types for the Natively LLM system
 
+// ── InterviewCopilot ──────────────────────────────────────────────────────────
+
+export interface WorkExperience {
+    company: string;
+    role: string;
+    period: string;
+    achievements: string[];
+}
+
+export interface ProjectExperience {
+    name: string;
+    role: string;
+    tech: string[];
+    outcomes: string[];
+}
+
+export interface Education {
+    institution: string;
+    degree: string;
+    field: string;
+}
+
+/**
+ * Structured context parsed from a candidate's resume + JD before an interview.
+ * Loaded once into SessionContextStore at session start; cleared on session end.
+ */
+export interface SessionContext {
+    workExperience: WorkExperience[];
+    projects: ProjectExperience[];
+    education: Education;
+    skills: string[];
+    jdKeywords: string[];
+    /** Present when the candidate has a cross-industry background worth surfacing. */
+    careerPivotStory?: string;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 import { GoogleGenAI } from "@google/genai";
 
 /**
