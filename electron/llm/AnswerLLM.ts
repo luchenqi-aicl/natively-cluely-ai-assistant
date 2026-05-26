@@ -124,22 +124,24 @@ export class InterviewAnswerLLM {
     /**
      * Streams a hint for the given transcript excerpt.
      * Yields tokens as they arrive from the API.
+     * @param kbChunks optional retrieved knowledge-base passages to inject as extra context
      */
-    async * generateHint(transcript: string): AsyncGenerator<string, void, unknown> {
+    async * generateHint(transcript: string, kbChunks?: string[]): AsyncGenerator<string, void, unknown> {
         const ctx = this.store.get();
         const systemPrompt = buildInterviewSystemPrompt(ctx);
+
+        let userContent = `<live_transcript>\n${transcript}\n</live_transcript>`;
+        if (kbChunks && kbChunks.length > 0) {
+            userContent += `\n\n<reference_experience>\n${kbChunks.map((c, i) => `[${i + 1}] ${c}`).join('\n\n')}\n</reference_experience>\n<note>The above passages are real interview experiences from the knowledge base. Reference relevant specifics naturally when helpful.</note>`;
+        }
+        userContent += '\n\nGenerate the candidate\'s spoken answer to the most recent interviewer question above.';
 
         const stream = await this.client.messages.stream({
             model: this.modelId,
             max_tokens: 512,
             temperature: 0.3,
             system: systemPrompt,
-            messages: [
-                {
-                    role: 'user',
-                    content: `<live_transcript>\n${transcript}\n</live_transcript>\n\nGenerate the candidate's spoken answer to the most recent interviewer question above.`,
-                },
-            ],
+            messages: [{ role: 'user', content: userContent }],
         });
 
         for await (const event of stream) {
@@ -150,6 +152,39 @@ export class InterviewAnswerLLM {
                 yield event.delta.text;
             }
         }
+    }
+
+    /**
+     * Compress a full hint to a 150-250 char skeleton retaining bolded keywords.
+     * Uses the same Anthropic client with a fast haiku call.
+     */
+    async compressHint(fullHint: string): Promise<string> {
+        const resp = await this.client.messages.stream({
+            model: this.modelId,
+            max_tokens: 120,
+            temperature: 0.1,
+            system: 'You are a text compressor. Extract the 3–5 most critical points from the text. Keep all **bold** markdown. Output plain prose or bullet points — 150 to 250 characters total. No preamble.',
+            messages: [{ role: 'user', content: fullHint }],
+        });
+
+        let compressed = '';
+        for await (const event of resp) {
+            if (event.type === 'content_block_delta' && event.delta?.type === 'text_delta') {
+                compressed += event.delta.text;
+            }
+        }
+        return compressed.trim();
+    }
+
+    /**
+     * Apply output mode: 'full' → return as-is, 'skeleton' → compress,
+     * 'auto' → compress only if > 400 chars.
+     */
+    async applyOutputMode(hint: string, mode: 'auto' | 'skeleton' | 'full'): Promise<string> {
+        if (mode === 'full') return hint;
+        if (mode === 'skeleton') return this.compressHint(hint);
+        // auto
+        return hint.length > 400 ? this.compressHint(hint) : hint;
     }
 
     /** Exposed for testing — returns the system prompt that would be built. */

@@ -413,10 +413,13 @@ export interface ElectronAPI {
   // InterviewCopilot — pre-interview setup
   interviewSelectResume: () => Promise<{ cancelled?: boolean; success?: boolean; filePath?: string; filename?: string; error?: string }>
   interviewParseResume: (payload: { filePath: string; jdText: string; interviewType: string; sttLanguage: string; hintLanguage: string }) => Promise<{ success: boolean; error?: string }>
-  interviewGenerateHint: (transcript: string) => Promise<void>
+  interviewGenerateHint: (transcript: string, kbChunks?: string[]) => Promise<void>
   onInterviewHintToken: (callback: (token: string) => void) => () => void
+  onInterviewHintResult: (callback: (hint: string) => void) => () => void
   onInterviewHintDone: (callback: () => void) => () => void
   onInterviewHintError: (callback: (error: string) => void) => () => void
+  interviewGetHintMode: () => Promise<{ mode: 'auto' | 'skeleton' | 'full' }>
+  interviewSetHintMode: (mode: 'auto' | 'skeleton' | 'full') => Promise<{ success: boolean }>
 }
 
 export interface PhoneMirrorInfo {

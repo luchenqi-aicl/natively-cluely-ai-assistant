@@ -29,6 +29,7 @@ export interface AppSettings {
     localWhisperPerChannelEnabled?: boolean;
     localWhisperModelMic?: string;
     localWhisperModelSystem?: string;
+    interviewHintMode?: 'auto' | 'skeleton' | 'full';
 }
 
 export class SettingsManager {

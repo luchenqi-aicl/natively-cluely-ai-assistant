@@ -553,11 +553,16 @@ contextBridge.exposeInMainWorld("electronAPI", {
   interviewSetNonRealtimeModel: (model: string) => ipcRenderer.invoke('interview:set-non-realtime-model', model),
   interviewSelectResume: () => ipcRenderer.invoke('interview:select-resume'),
   interviewParseResume: (payload: any) => ipcRenderer.invoke('interview:parse-resume', payload),
-  interviewGenerateHint: (transcript: string) => ipcRenderer.invoke('interview:generate-hint', { transcript }),
+  interviewGenerateHint: (transcript: string, kbChunks?: string[]) => ipcRenderer.invoke('interview:generate-hint', { transcript, kbChunks }),
   onInterviewHintToken: (callback: (token: string) => void) => {
     const sub = (_: any, token: string) => callback(token);
     ipcRenderer.on('interview:hint-token', sub);
     return () => { ipcRenderer.removeListener('interview:hint-token', sub); };
+  },
+  onInterviewHintResult: (callback: (hint: string) => void) => {
+    const sub = (_: any, hint: string) => callback(hint);
+    ipcRenderer.on('interview:hint-result', sub);
+    return () => { ipcRenderer.removeListener('interview:hint-result', sub); };
   },
   onInterviewHintDone: (callback: () => void) => {
     const sub = () => callback();
@@ -569,6 +574,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.on('interview:hint-error', sub);
     return () => { ipcRenderer.removeListener('interview:hint-error', sub); };
   },
+  interviewGetHintMode: () => ipcRenderer.invoke('interview:get-hint-mode'),
+  interviewSetHintMode: (mode: 'auto' | 'skeleton' | 'full') => ipcRenderer.invoke('interview:set-hint-mode', mode),
   onWindowMaximizedChanged: (callback: (isMaximized: boolean) => void) => {
     const subscription = (_: any, isMaximized: boolean) => callback(isMaximized);
     ipcRenderer.on('window-maximized-changed', subscription);

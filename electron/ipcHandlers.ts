@@ -2503,8 +2503,22 @@ export function initializeIpcHandlers(appState: AppState): void {
     }
   });
 
-  // Streaming interview hint — sends 'interview:hint-token' events while generating
-  safeHandle("interview:generate-hint", async (event, payload: { transcript: string }) => {
+  // Interview hint mode settings
+  safeHandle("interview:get-hint-mode", () => {
+    const { SettingsManager } = require('./services/SettingsManager');
+    return { mode: SettingsManager.getInstance().get('interviewHintMode') ?? 'auto' };
+  });
+
+  safeHandle("interview:set-hint-mode", (_event, mode: 'auto' | 'skeleton' | 'full') => {
+    const { SettingsManager } = require('./services/SettingsManager');
+    SettingsManager.getInstance().set('interviewHintMode', mode);
+    return { success: true };
+  });
+
+  // Streaming interview hint — respects output mode (auto/skeleton/full)
+  // Emits 'interview:hint-token' (full mode only, live), then 'interview:hint-result'
+  // (final processed string for all modes), then 'interview:hint-done'.
+  safeHandle("interview:generate-hint", async (event, payload: { transcript: string; kbChunks?: string[] }) => {
     try {
       const { CredentialsManager } = require('./services/CredentialsManager');
       const cm = CredentialsManager.getInstance();
@@ -2514,6 +2528,9 @@ export function initializeIpcHandlers(appState: AppState): void {
         return;
       }
 
+      const { SettingsManager } = require('./services/SettingsManager');
+      const mode: 'auto' | 'skeleton' | 'full' = SettingsManager.getInstance().get('interviewHintMode') ?? 'auto';
+
       const Anthropic = require('@anthropic-ai/sdk');
       const client = new Anthropic.default({ apiKey: claudeKey });
       const modelId = cm.getInterviewRealtimeModel();
@@ -2522,13 +2539,23 @@ export function initializeIpcHandlers(appState: AppState): void {
       const { sessionContextStore } = require('./SessionContextStore');
       const llm = new InterviewAnswerLLM({ client, modelId, store: sessionContextStore });
 
-      for await (const token of llm.generateHint(payload.transcript)) {
-        if (event.sender.isDestroyed()) break;
-        event.sender.send('interview:hint-token', token);
+      // Collect full response; in full mode also stream tokens live
+      let fullHint = '';
+      for await (const token of llm.generateHint(payload.transcript, payload.kbChunks)) {
+        if (event.sender.isDestroyed()) return;
+        fullHint += token;
+        if (mode === 'full') {
+          event.sender.send('interview:hint-token', token);
+        }
       }
-      if (!event.sender.isDestroyed()) {
-        event.sender.send('interview:hint-done');
-      }
+
+      if (event.sender.isDestroyed()) return;
+
+      // Apply mode post-processing
+      const result = await llm.applyOutputMode(fullHint, mode);
+
+      event.sender.send('interview:hint-result', result);
+      event.sender.send('interview:hint-done');
     } catch (e: any) {
       console.error('[interview:generate-hint] Error:', e);
       if (!event.sender.isDestroyed()) {

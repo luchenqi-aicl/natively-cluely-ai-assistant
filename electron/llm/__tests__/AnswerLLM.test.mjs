@@ -184,3 +184,77 @@ test('generateHint uses the injected modelId', async () => {
     assert.equal(capturedParams?.model, 'claude-haiku-4-5-20251001');
     assert.equal(capturedParams?.max_tokens, 512);
 });
+
+test('compressHint calls Anthropic with max_tokens 120', async () => {
+    const store = new SessionContextStore();
+    store.load(SAMPLE_CONTEXT);
+    let captured = null;
+    const client = {
+        messages: {
+            stream: async (params) => {
+                captured = params;
+                return {
+                    [Symbol.asyncIterator]: async function* () {
+                        yield { type: 'content_block_delta', delta: { type: 'text_delta', text: 'Compressed.' } };
+                    },
+                };
+            },
+        },
+    };
+    const llm = new InterviewAnswerLLM({ client, store });
+    const result = await llm.compressHint('This is a very long hint that needs compression.');
+    assert.equal(result, 'Compressed.');
+    assert.equal(captured?.max_tokens, 120);
+});
+
+test('applyOutputMode returns original for full mode', async () => {
+    const store = new SessionContextStore();
+    const llm = new InterviewAnswerLLM({ client: makeStreamingMock([]), store });
+    const hint = 'short hint';
+    const result = await llm.applyOutputMode(hint, 'full');
+    assert.equal(result, hint);
+});
+
+test('applyOutputMode returns original in auto mode when hint <= 400 chars', async () => {
+    const store = new SessionContextStore();
+    const llm = new InterviewAnswerLLM({ client: makeStreamingMock([]), store });
+    const short = 'A'.repeat(300);
+    const result = await llm.applyOutputMode(short, 'auto');
+    assert.equal(result, short);
+});
+
+test('applyOutputMode compresses in auto mode when hint > 400 chars', async () => {
+    const store = new SessionContextStore();
+    store.load(SAMPLE_CONTEXT);
+    const compressClient = {
+        messages: {
+            stream: async () => ({
+                [Symbol.asyncIterator]: async function* () {
+                    yield { type: 'content_block_delta', delta: { type: 'text_delta', text: 'short' } };
+                },
+            }),
+        },
+    };
+    const llm = new InterviewAnswerLLM({ client: compressClient, store });
+    const long = 'B'.repeat(401);
+    const result = await llm.applyOutputMode(long, 'auto');
+    assert.equal(result, 'short');
+});
+
+test('generateHint injects kbChunks into user message', async () => {
+    const store = new SessionContextStore();
+    store.load(SAMPLE_CONTEXT);
+    let capturedContent = null;
+    const client = {
+        messages: {
+            stream: async (params) => {
+                capturedContent = params.messages[0].content;
+                return { [Symbol.asyncIterator]: async function* () {} };
+            },
+        },
+    };
+    const llm = new InterviewAnswerLLM({ client, store });
+    for await (const _ of llm.generateHint('test', ['chunk1', 'chunk2'])) { /* drain */ }
+    assert.match(capturedContent, /reference_experience/);
+    assert.match(capturedContent, /chunk1/);
+});

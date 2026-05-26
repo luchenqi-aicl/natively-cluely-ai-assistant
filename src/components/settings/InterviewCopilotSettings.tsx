@@ -17,6 +17,12 @@ const NON_REALTIME_MODELS: ModelOption[] = [
     { id: 'claude-sonnet-4-6', name: 'Claude Sonnet 4.6', desc: 'Balanced quality' },
 ];
 
+const HINT_MODES = [
+    { id: 'auto' as const, name: 'Auto', desc: 'Compress only when hint > 400 chars' },
+    { id: 'skeleton' as const, name: 'Skeleton', desc: 'Always compress to 150-250 chars' },
+    { id: 'full' as const, name: 'Full', desc: 'Always show complete hint' },
+];
+
 const ModelSelect: React.FC<{
     value: string;
     options: ModelOption[];
@@ -71,11 +77,15 @@ const ModelSelect: React.FC<{
 const InterviewCopilotSettings: React.FC = () => {
     const [realtimeModel, setRealtimeModel] = useState('claude-haiku-4-5-20251001');
     const [nonRealtimeModel, setNonRealtimeModel] = useState('claude-opus-4-7');
+    const [hintMode, setHintMode] = useState<'auto' | 'skeleton' | 'full'>('auto');
 
     useEffect(() => {
         window.electronAPI?.interviewGetModels?.().then(({ realtimeModel: rt, nonRealtimeModel: nrt }) => {
             setRealtimeModel(rt);
             setNonRealtimeModel(nrt);
+        }).catch(() => {});
+        window.electronAPI?.interviewGetHintMode?.().then(({ mode }) => {
+            setHintMode(mode);
         }).catch(() => {});
     }, []);
 
@@ -89,9 +99,37 @@ const InterviewCopilotSettings: React.FC = () => {
         window.electronAPI?.interviewSetNonRealtimeModel?.(model).catch(() => {});
     };
 
+    const handleHintModeChange = (mode: 'auto' | 'skeleton' | 'full') => {
+        setHintMode(mode);
+        window.electronAPI?.interviewSetHintMode?.(mode).catch(() => {});
+    };
+
     return (
         <div className="space-y-6 animated fadeIn">
             <div className="space-y-3.5">
+                {/* Hint output mode */}
+                <div className="bg-bg-item-surface rounded-xl p-5 border border-border-subtle">
+                    <div className="mb-3">
+                        <h3 className="text-sm font-semibold text-text-primary">Hint Output Mode</h3>
+                        <p className="text-xs text-text-secondary mt-1">
+                            Controls whether hints are compressed or shown in full. Takes effect on next trigger.
+                        </p>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                        {HINT_MODES.map(m => (
+                            <button
+                                key={m.id}
+                                type="button"
+                                onClick={() => handleHintModeChange(m.id)}
+                                className={`py-2 px-3 rounded-lg text-xs font-medium transition-colors border text-left ${hintMode === m.id ? 'bg-accent-primary/15 border-accent-primary text-accent-primary' : 'border-border-subtle text-text-secondary hover:text-text-primary hover:bg-bg-item-active/50'}`}
+                            >
+                                <div className="font-semibold">{m.name}</div>
+                                <div className="text-[10px] opacity-70 mt-0.5 leading-tight">{m.desc}</div>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
                 {/* Realtime hint model */}
                 <div className="bg-bg-item-surface rounded-xl p-5 border border-border-subtle">
                     <div className="flex items-center justify-between">

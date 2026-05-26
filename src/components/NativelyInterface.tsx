@@ -592,19 +592,52 @@ const NativelyInterface: React.FC<NativelyInterfaceProps> = ({
         return () => unsub?.();
     }, []);
 
+    // InterviewCopilot: hint result + error state
+    const [interviewHint, setInterviewHint] = useState<string | null>(null);
+    const [interviewHintError, setInterviewHintError] = useState<string | null>(null);
+
+    // InterviewCopilot: mount-once IPC listeners for hint streaming
+    useEffect(() => {
+        const unsubResult = window.electronAPI?.onInterviewHintResult?.((hint) => {
+            setInterviewHint(hint);
+        });
+        const unsubDone = window.electronAPI?.onInterviewHintDone?.(() => {
+            setIsInterviewGenerating(false);
+        });
+        const unsubErr = window.electronAPI?.onInterviewHintError?.((err) => {
+            setInterviewHintError(err);
+            setIsInterviewGenerating(false);
+        });
+        return () => { unsubResult?.(); unsubDone?.(); unsubErr?.(); };
+    }, []);
+
     // InterviewCopilot: listen for interview:trigger from main (auto or manual routed via main)
     useEffect(() => {
         const unsub = window.electronAPI?.onInterviewTrigger?.(({ source }) => {
             if (isInterviewGeneratingRef.current) {
                 // Second trigger during generation → cancel
                 setIsInterviewGenerating(false);
-            } else {
-                setIsInterviewGenerating(true);
-                console.log(`[InterviewCopilot] Hint generation triggered (source: ${source})`);
-                // TODO(#6): call AnswerLLM.generateHint() and reset state on completion
+                return;
             }
+            setIsInterviewGenerating(true);
+            setInterviewHint(null);
+            setInterviewHintError(null);
+            console.log(`[InterviewCopilot] Hint generation triggered (source: ${source})`);
+            // Build transcript from rollingTranscript state (latest 20 segments)
+            const transcript = (rollingTranscript ?? '')
+                .split('\n')
+                .slice(-20)
+                .join('\n')
+                .trim();
+            window.electronAPI?.interviewGenerateHint?.(transcript || 'Please generate an interview hint.').catch((err: any) => {
+                setInterviewHintError(err?.message ?? 'Generation failed.');
+                setIsInterviewGenerating(false);
+            });
         });
         return () => unsub?.();
+    // rollingTranscript is used inside but intentionally not listed: we read the
+    // latest value at trigger time via closure (ref-like pattern, no re-subscribe needed)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // Screen Recording Permission Warning Banner
@@ -3200,6 +3233,39 @@ Provide only the answer, nothing else.`;
                                     )}
                                     <div ref={messagesEndRef} />
                                 </motion.div>
+                            )}
+
+                            {/* InterviewCopilot Hint Panel */}
+                            {(isInterviewGenerating || interviewHint || interviewHintError) && (
+                                <div className="mx-3 mb-2 rounded-xl border overflow-hidden" style={appearance.subtleStyle}>
+                                    {isInterviewGenerating && !interviewHint && (
+                                        <div className="flex items-center gap-2 px-4 py-3">
+                                            <div className="flex gap-1">
+                                                <div className="w-1.5 h-1.5 bg-accent-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                                                <div className="w-1.5 h-1.5 bg-accent-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                                                <div className="w-1.5 h-1.5 bg-accent-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                                            </div>
+                                            <span className="text-xs text-text-secondary">Generating hint…</span>
+                                        </div>
+                                    )}
+                                    {interviewHintError && (
+                                        <div className="px-4 py-3 text-xs text-red-400">{interviewHintError}</div>
+                                    )}
+                                    {interviewHint && (
+                                        <div className="px-4 py-3">
+                                            <div className="text-xs text-text-primary leading-relaxed whitespace-pre-wrap"
+                                                dangerouslySetInnerHTML={{ __html: interviewHint.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>') }}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => { setInterviewHint(null); setInterviewHintError(null); }}
+                                                className="mt-2 text-[10px] text-text-secondary hover:text-text-primary transition-colors"
+                                            >
+                                                Dismiss
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
                             )}
 
                             {/* Quick Actions - Minimal & Clean */}
