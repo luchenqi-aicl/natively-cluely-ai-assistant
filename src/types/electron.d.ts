@@ -422,6 +422,11 @@ export interface ElectronAPI {
   interviewSetHintMode: (mode: 'auto' | 'skeleton' | 'full') => Promise<{ success: boolean }>
   interviewGenerateDebrief: (qaPairs: Array<{ question: string; hint: string }>) => Promise<{ success: boolean; report?: any; error?: string }>
   interviewGetDebrief: (meetingId?: string) => Promise<{ success: boolean; report?: any; error?: string }>
+  onInterviewDebriefReady: (callback: (report: any) => void) => () => void
+  interviewKbSelectFiles: () => Promise<{ filePaths: string[] }>
+  interviewKbUpload: (filePaths: string[]) => Promise<{ results: Array<{ success: boolean; docId?: string; chunkCount?: number; filename: string; error?: string }> }>
+  interviewKbList: () => Promise<{ docs: Array<{ id: string; filename: string; ingestedAt: string; chunkCount: number }> }>
+  interviewKbDelete: (docId: string) => Promise<{ success: boolean }>
 }
 
 export interface PhoneMirrorInfo {

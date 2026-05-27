@@ -16,6 +16,7 @@ import { FreeTrialModal }       from "./components/trial/FreeTrialModal"
 import { TrialPromoToaster }    from "./components/trial/TrialPromoToaster"
 import { PermissionsToaster }   from "./components/onboarding/PermissionsToaster"
 import PreInterviewSetupPanel from "./components/PreInterviewSetupPanel"
+import DebriefReportPanel, { type DebriefReport } from "./components/DebriefReportPanel"
 import { AlertCircle } from "lucide-react"
 import { clampOverlayOpacity, OVERLAY_OPACITY_DEFAULT, getDefaultOverlayOpacity } from "./lib/overlayAppearance"
 import { getMeetingInterfaceTheme, type MeetingInterfaceTheme } from './lib/meetingInterfaceTheme'
@@ -140,6 +141,8 @@ const App: React.FC = () => {
   const [hasProfile, setHasProfile] = useState(false);
   const [isLauncherMainView, setIsLauncherMainView] = useState(true);
   const [showSetupPanel, setShowSetupPanel] = useState(false);
+  const [showDebriefPanel, setShowDebriefPanel] = useState(false);
+  const [debriefReport, setDebriefReport] = useState<DebriefReport | null>(null);
 
   // Initialize Ads Campaign Manager
   const [appStartTime] = useState<number>(Date.now());
@@ -295,6 +298,14 @@ const App: React.FC = () => {
       openSettingsExclusive(tab);
     });
 
+    // Listen for interview debrief ready (generated after meeting ends)
+    const removeDebriefListener = window.electronAPI?.onInterviewDebriefReady?.((report: DebriefReport) => {
+      if (report && report.questions && report.questions.length > 0) {
+        setDebriefReport(report);
+        setShowDebriefPanel(true);
+      }
+    });
+
     // Listen for meeting processing completion to trigger post-meeting ads
     const removeMeetingsListener = window.electronAPI?.onMeetingsUpdated?.(() => {
       console.log("[App.tsx] Meetings updated (processing finished), starting ad delay timer");
@@ -343,6 +354,7 @@ const App: React.FC = () => {
       if (trialPollId) clearInterval(trialPollId);
       if (removeTrialListener) removeTrialListener();
       if (removeOpenSettingsTab) removeOpenSettingsTab();
+      if (removeDebriefListener) removeDebriefListener();
     }
   }, []);
 
@@ -552,6 +564,14 @@ const App: React.FC = () => {
                       <PreInterviewSetupPanel
                         onDone={handleSetupDone}
                         onCancel={() => setShowSetupPanel(false)}
+                      />
+                    )}
+                  </AnimatePresence>
+                  <AnimatePresence>
+                    {showDebriefPanel && debriefReport && (
+                      <DebriefReportPanel
+                        report={debriefReport}
+                        onClose={() => { setShowDebriefPanel(false); setDebriefReport(null); }}
                       />
                     )}
                   </AnimatePresence>

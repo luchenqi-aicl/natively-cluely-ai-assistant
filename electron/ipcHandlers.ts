@@ -2539,9 +2539,17 @@ export function initializeIpcHandlers(appState: AppState): void {
       const { sessionContextStore } = require('./SessionContextStore');
       const llm = new InterviewAnswerLLM({ client, modelId, store: sessionContextStore });
 
+      // Query KB for relevant chunks (top 2) and merge with any caller-supplied chunks
+      let kbChunks = payload.kbChunks ?? [];
+      try {
+        const kb = getInterviewKB();
+        const retrieved = await kb.query(payload.transcript, 2);
+        kbChunks = [...retrieved, ...kbChunks];
+      } catch { /* non-fatal — continue without KB */ }
+
       // Collect full response; in full mode also stream tokens live
       let fullHint = '';
-      for await (const token of llm.generateHint(payload.transcript, payload.kbChunks)) {
+      for await (const token of llm.generateHint(payload.transcript, kbChunks.length > 0 ? kbChunks : undefined)) {
         if (event.sender.isDestroyed()) return;
         fullHint += token;
         if (mode === 'full') {
@@ -2594,6 +2602,12 @@ export function initializeIpcHandlers(appState: AppState): void {
         }
       }
 
+      // Broadcast to all windows so the launcher can show the DebriefReportPanel
+      const { BrowserWindow } = require('electron');
+      BrowserWindow.getAllWindows().forEach((w: any) => {
+        if (!w.isDestroyed()) w.webContents.send('interview:debrief-ready', report);
+      });
+
       return { success: true, report };
     } catch (e: any) {
       console.error('[interview:generate-debrief] Error:', e);
@@ -2616,6 +2630,50 @@ export function initializeIpcHandlers(appState: AppState): void {
     } catch (e: any) {
       return { success: false, error: e.message };
     }
+  });
+
+  // ── Interview Knowledge Base (RAG) ───────────────────────────────────────────
+  let _interviewKB: any = null;
+  function getInterviewKB() {
+    if (!_interviewKB) {
+      const { app } = require('electron');
+      const { InterviewKnowledgeBase } = require('./llm/InterviewKnowledgeBase');
+      _interviewKB = new InterviewKnowledgeBase(app.getPath('userData'));
+    }
+    return _interviewKB;
+  }
+
+  safeHandle("interview:kb-select-files", async () => {
+    const { dialog } = require('electron');
+    const result = await dialog.showOpenDialog({
+      properties: ['openFile', 'multiSelections'],
+      filters: [{ name: 'Documents', extensions: ['pdf', 'txt', 'md'] }],
+    });
+    return { filePaths: result.canceled ? [] : result.filePaths };
+  });
+
+  safeHandle("interview:kb-upload", async (_event, payload: { filePaths: string[] }) => {
+    const kb = getInterviewKB();
+    const results = [];
+    for (const fp of payload.filePaths) {
+      try {
+        const filename = require('path').basename(fp);
+        const res = await kb.ingestFile(fp, filename);
+        results.push({ success: true, ...res, filename });
+      } catch (e: any) {
+        results.push({ success: false, error: e.message, filename: require('path').basename(fp) });
+      }
+    }
+    return { results };
+  });
+
+  safeHandle("interview:kb-list", async () => {
+    return { docs: getInterviewKB().listDocs() };
+  });
+
+  safeHandle("interview:kb-delete", async (_event, payload: { docId: string }) => {
+    getInterviewKB().deleteDoc(payload.docId);
+    return { success: true };
   });
 
   safeHandle("get-recent-meetings", async () => {

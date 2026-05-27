@@ -578,6 +578,15 @@ contextBridge.exposeInMainWorld("electronAPI", {
   interviewSetHintMode: (mode: 'auto' | 'skeleton' | 'full') => ipcRenderer.invoke('interview:set-hint-mode', mode),
   interviewGenerateDebrief: (qaPairs: Array<{ question: string; hint: string }>) => ipcRenderer.invoke('interview:generate-debrief', { qaPairs }),
   interviewGetDebrief: (meetingId?: string) => ipcRenderer.invoke('interview:get-debrief', { meetingId }),
+  onInterviewDebriefReady: (callback: (report: any) => void) => {
+    const sub = (_: any, report: any) => callback(report);
+    ipcRenderer.on('interview:debrief-ready', sub);
+    return () => { ipcRenderer.removeListener('interview:debrief-ready', sub); };
+  },
+  interviewKbSelectFiles: () => ipcRenderer.invoke('interview:kb-select-files'),
+  interviewKbUpload: (filePaths: string[]) => ipcRenderer.invoke('interview:kb-upload', { filePaths }),
+  interviewKbList: () => ipcRenderer.invoke('interview:kb-list'),
+  interviewKbDelete: (docId: string) => ipcRenderer.invoke('interview:kb-delete', { docId }),
   onWindowMaximizedChanged: (callback: (isMaximized: boolean) => void) => {
     const subscription = (_: any, isMaximized: boolean) => callback(isMaximized);
     ipcRenderer.on('window-maximized-changed', subscription);

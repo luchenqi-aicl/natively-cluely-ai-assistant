@@ -595,11 +595,17 @@ const NativelyInterface: React.FC<NativelyInterfaceProps> = ({
     // InterviewCopilot: hint result + error state
     const [interviewHint, setInterviewHint] = useState<string | null>(null);
     const [interviewHintError, setInterviewHintError] = useState<string | null>(null);
+    // Accumulated QA pairs for end-of-session debrief
+    const interviewQAPairsRef = React.useRef<Array<{ question: string; hint: string }>>([]);
+    const lastHintTranscriptRef = React.useRef<string>('');
 
     // InterviewCopilot: mount-once IPC listeners for hint streaming
     useEffect(() => {
         const unsubResult = window.electronAPI?.onInterviewHintResult?.((hint) => {
             setInterviewHint(hint);
+            if (lastHintTranscriptRef.current) {
+                interviewQAPairsRef.current.push({ question: lastHintTranscriptRef.current, hint });
+            }
         });
         const unsubDone = window.electronAPI?.onInterviewHintDone?.(() => {
             setIsInterviewGenerating(false);
@@ -629,6 +635,7 @@ const NativelyInterface: React.FC<NativelyInterfaceProps> = ({
                 .slice(-20)
                 .join('\n')
                 .trim();
+            lastHintTranscriptRef.current = transcript || 'Interview question';
             window.electronAPI?.interviewGenerateHint?.(transcript || 'Please generate an interview hint.').catch((err: any) => {
                 setInterviewHintError(err?.message ?? 'Generation failed.');
                 setIsInterviewGenerating(false);
@@ -3066,7 +3073,12 @@ Provide only the answer, nothing else.`;
                         <TopPill
                             expanded={isExpanded}
                             onToggle={() => setIsExpanded(!isExpanded)}
-                            onQuit={() => onEndMeeting ? onEndMeeting() : window.electronAPI.quitApp()}
+                            onQuit={() => {
+                                if (interviewQAPairsRef.current.length > 0) {
+                                    window.electronAPI?.interviewGenerateDebrief?.(interviewQAPairsRef.current).catch(() => {});
+                                }
+                                onEndMeeting ? onEndMeeting() : window.electronAPI.quitApp();
+                            }}
                             appearance={appearance}
                             onLogoClick={() => window.electronAPI?.setWindowMode?.('launcher')}
                         />
