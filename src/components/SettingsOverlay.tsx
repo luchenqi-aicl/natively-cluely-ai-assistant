@@ -6,7 +6,7 @@ import {
     Camera, RotateCcw, Eye, Layout, MessageSquare, Crop,
     ChevronDown, ChevronUp, Check, BadgeCheck, Power, Palette, Calendar, Ghost, Sun, Moon, RefreshCw, Info, Globe, FlaskConical, Terminal, Settings, Activity, ExternalLink, Trash2,
     Sparkles, Pencil, Briefcase, Building2, Search, MapPin, CheckCircle, HelpCircle, Zap, SlidersHorizontal, PointerOff,
-    Star, AlertCircle, Gift, Smartphone, Cpu
+    Star, AlertCircle, Gift, Smartphone, Cpu, BookOpen
 } from 'lucide-react';
 import { analytics } from '../lib/analytics/analytics.service';
 import { AboutSection } from './AboutSection';
@@ -16,6 +16,7 @@ import { NativelyApiSettings } from './settings/NativelyApiSettings';
 import { NativelyProSettings } from './settings/NativelyProSettings';
 import { PhoneMirrorSettings } from './settings/PhoneMirrorSettings';
 import InterviewCopilotSettings from './settings/InterviewCopilotSettings';
+import InterviewKBSettings from './settings/InterviewKBSettings';
 import { LocalWhisperModelPanel } from './LocalWhisperModelPanel';
 import { NativelyLogoMark } from './NativelyLogoMark';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -1367,6 +1368,13 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose, init
                                         className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-3 ${activeTab === 'interview-copilot' ? 'bg-bg-item-active text-text-primary' : 'text-text-secondary hover:text-text-primary hover:bg-bg-item-active/50'}`}
                                     >
                                         <Briefcase size={16} /> Interview Copilot
+                                    </button>
+
+                                    <button
+                                        onClick={() => setActiveTab('interview-kb')}
+                                        className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-3 ${activeTab === 'interview-kb' ? 'bg-bg-item-active text-text-primary' : 'text-text-secondary hover:text-text-primary hover:bg-bg-item-active/50'}`}
+                                    >
+                                        <BookOpen size={16} /> 知识库
                                     </button>
 
                                     <button
@@ -2880,6 +2888,10 @@ const SettingsOverlay: React.FC<SettingsOverlayProps> = ({ isOpen, onClose, init
 
                             {activeTab === 'interview-copilot' && (
                                 <InterviewCopilotSettings />
+                            )}
+
+                            {activeTab === 'interview-kb' && (
+                                <InterviewKBSettings />
                             )}
 
                             {activeTab === 'help' && (
